@@ -364,7 +364,8 @@ html,body{
           <div class="token-help">
             Find your token in the
             <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a>
-            under Bot → Token.
+            under Bot → Token.<br/>
+            Then run <code>python backend_local.py</code> on this device before logging in.
           </div>
         </div>
 
@@ -481,18 +482,43 @@ function handleLogin(e){
   btn.classList.add('loading');
   btn.disabled=true;
 
-  // store token in sessionStorage for the dashboard
-  sessionStorage.setItem('botToken', token);
+  verifyBotToken(token)
+    .then((session)=>{
+      sessionStorage.setItem('pendingSession', 'true');
+      sessionStorage.setItem('botProfile', JSON.stringify(session.profile||{}));
+      sessionStorage.setItem('botGuildCount', String(session.guild_count||0));
+      btn.classList.remove('loading');
+      btn.disabled=false;
+      showToast('✅','Local backend connected. Review permissions to continue.','success');
+      setTimeout(()=>{ window.location.href='perm.html'; }, 850);
+    })
+    .catch((message)=>{
+      btn.classList.remove('loading');
+      btn.disabled=false;
+      inp.classList.add('error');
+      err.textContent=message || 'Unable to verify token.';
+      err.classList.add('show');
+      showToast('⚠️',message || 'Token check failed.','error');
+    });
+}
 
-  // simulate auth delay then redirect
-  setTimeout(()=>{
-    btn.classList.remove('loading');
-    btn.disabled=false;
-    showToast('✅','Token accepted. Loading dashboard...','success');
-    setTimeout(()=>{
-      window.location.href='bot-dashboard.html';
-    }, 900);
-  }, 1800);
+function verifyBotToken(token){
+  return fetch('http://127.0.0.1:8787/api/session/start',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({token})
+  }).then(async(res)=>{
+    const data=await res.json().catch(()=>({}));
+    if(res.ok&&data.ok) return data;
+    if(res.status===401) throw new Error('Invalid bot token.');
+    if(res.status===502) throw new Error('Backend cannot reach Discord right now.');
+    throw new Error(data.error||'Local backend check failed.');
+  }).catch((err)=>{
+    if(err.message&&err.message.includes('Failed to fetch')){
+      throw new Error('Local backend is offline. Start backend_local.py first.');
+    }
+    throw err;
+  });
 }
 
 /* ── shake animation ── */
