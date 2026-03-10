@@ -481,18 +481,44 @@ function handleLogin(e){
   btn.classList.add('loading');
   btn.disabled=true;
 
-  // store token in sessionStorage for the dashboard
-  sessionStorage.setItem('botToken', token);
+  verifyBotToken(token)
+    .then(()=>{
+      sessionStorage.setItem('pendingBotToken', token);
+      btn.classList.remove('loading');
+      btn.disabled=false;
+      showToast('✅','Token verified. Review permissions to continue.','success');
+      setTimeout(()=>{ window.location.href='perm.html'; }, 850);
+    })
+    .catch((message)=>{
+      btn.classList.remove('loading');
+      btn.disabled=false;
+      inp.classList.add('error');
+      err.textContent=message || 'Unable to verify token.';
+      err.classList.add('show');
+      showToast('⚠️',message || 'Token check failed.','error');
+    });
+}
 
-  // simulate auth delay then redirect
-  setTimeout(()=>{
-    btn.classList.remove('loading');
-    btn.disabled=false;
-    showToast('✅','Token accepted. Loading dashboard...','success');
-    setTimeout(()=>{
-      window.location.href='bot-dashboard.html';
-    }, 900);
-  }, 1800);
+function verifyBotToken(token){
+  return fetch('https://discord.com/api/v10/users/@me',{
+    headers:{ Authorization:`Bot ${token}` }
+  }).then(async(res)=>{
+    if(res.ok) return true;
+    if(res.status===401) throw new Error('Invalid bot token. Please use a valid token.');
+    throw new Error('Discord token check failed. Try again in a moment.');
+  }).catch((err)=>{
+    if(err.message.includes('Invalid bot token')||err.message.includes('Discord token check failed')) throw err;
+    // Fallback when browser blocks network/CORS: keep strict format check only.
+    const parts=token.trim().split('.');
+    if(parts.length!==3) throw new Error('Invalid bot token format.');
+    try{
+      const raw=atob(parts[0].replace(/-/g,'+').replace(/_/g,'/'));
+      if(!/^\d+$/.test(raw)) throw new Error('Token format looks invalid.');
+      return true;
+    }catch(_){
+      throw new Error('Could not verify token in browser. Check and try again.');
+    }
+  });
 }
 
 /* ── shake animation ── */

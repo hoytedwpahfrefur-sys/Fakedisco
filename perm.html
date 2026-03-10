@@ -277,11 +277,22 @@ html,body{
 <script>
 function handleContinue(){
   const btn = document.getElementById('continueBtn');
+  const token = sessionStorage.getItem('pendingBotToken');
+
+  if(!token){
+    alert('No verified bot session found. Please log in again.');
+    window.location.href='login2.html';
+    return;
+  }
+
   btn.classList.add('loading');
   btn.disabled = true;
   setTimeout(() => {
+    sessionStorage.setItem('botToken', token);
+    sessionStorage.removeItem('pendingBotToken');
+    sessionStorage.setItem('permissionAccepted','true');
     window.location.href = 'bot-dashboard2.html';
-  }, 1400);
+  }, 1200);
 }
 </script>
 </body>
