@@ -371,7 +371,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-1);font-fam
 
   <!-- Rail -->
   <div class="rail" id="rail">
-    <a class="rail-item rail-home" href="login2.html" title="Home">Bi</a>
+    <a class="rail-item rail-home" href="x_login2.html" title="Home">Bi</a>
     <div class="rail-sep"></div>
   </div>
 
@@ -392,7 +392,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-1);font-fam
         <div class="bot-disc">BOT</div>
       </div>
       <!-- Settings icon -->
-      <button class="icon-btn" onclick="window.location.href='login2.html'" title="Log out">
+      <button class="icon-btn" onclick="window.location.href='x_login2.html'" title="Log out">
         <svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.33.07-.67.07-1.08s-.03-.76-.07-1.08l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.67-.07 1.08s.03.76.07 1.08L2.2 13.08c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65z"/></svg>
       </button>
     </div>
@@ -438,7 +438,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-1);font-fam
 
 <script>
 /* ══ MOCK DATA ══ */
-const BOT = { username:'BiscordBot', id:'111', bot:true };
+
+/* ── session guard ── */
+const SESSION_ALLOWED=sessionStorage.getItem('permissionAccepted')==='true';
+if(!SESSION_ALLOWED){
+  window.location.href='x_login2.html';
+}
+const API='http://127.0.0.1:8787/api';
+const BOT = { username:'BiscordBot', id:'111', bot:true, avatar_url:'' };
 
 const GUILDS = [
   { id:'g1', name:'Wraith Clan',    abbr:'WC', color:'#5865F2' },
@@ -565,21 +572,72 @@ function fmtTs(ts){
 function fmtShort(ts){return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
+
+/* ── live discord bootstrap (through local backend) ── */
+async function api(path,options={}){
+  const res=await fetch(API+path,options);
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||'API failed');
+  return data;
+}
+
+async function hydrateFromDiscord(){
+  try{
+    const status=await api('/session/status');
+    if(!status.active) throw new Error('No local session');
+    if(status.profile){
+      BOT.username=status.profile.username||BOT.username;
+      BOT.id=status.profile.id||BOT.id;
+      BOT.avatar_url=status.profile.avatar_url||'';
+    }
+
+    const guildData=await api('/guilds');
+    const guilds=guildData.guilds;
+    if(Array.isArray(guilds)&&guilds.length){
+      GUILDS.length=0;
+      guilds.slice(0,20).forEach((g,idx)=>{
+        const name=g.name||`Server ${idx+1}`;
+        GUILDS.push({id:g.id,name,abbr:name.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase()||'SV',color:['#5865F2','#23A559','#FEE75C','#ED4245','#FF73FA'][idx%5]});
+      });
+      for(const g of GUILDS){
+        try{
+          const channelData=await api(`/guilds/${g.id}/channels`);
+          const channels=channelData.channels;
+          if(Array.isArray(channels)){
+            CHANNELS[g.id]=channels.filter(c=>[0,2,4,5].includes(c.type)).slice(0,40).map(c=>({id:c.id,name:c.name||'unnamed',type:c.type,pid:c.parent_id||undefined,topic:c.topic||''}));
+          }
+        }catch(_){ }
+      }
+    }
+  }catch(_){
+    // fallback to mock data
+  }
+
+  document.getElementById('botName').textContent=BOT.username;
+  const av=document.getElementById('botAv');
+  if(BOT.avatar_url){
+    av.innerHTML=`<img src="${BOT.avatar_url}" alt="bot avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>`;
+  }else{
+    av.textContent=ini(BOT.username);
+  }
+}
+
 /* ── state ── */
 let activeGuild=null, activeChannel=null;
 
 /* ── boot ── */
 (async()=>{
-  await sleep(400);
+  await sleep(220);
+  await hydrateFromDiscord();
   renderRail();
-  await sleep(150);
-  selectGuild(GUILDS[0]);
+  await sleep(100);
+  if(GUILDS.length) selectGuild(GUILDS[0]);
 })();
 
 /* ── rail ── */
 function renderRail(){
   const rail=document.getElementById('rail');
-  rail.innerHTML=`<a class="rail-item rail-home" href="login2.html" title="Home">Bi</a><div class="rail-sep"></div>`;
+  rail.innerHTML=`<a class="rail-item rail-home" href="x_login2.html" title="Home">Bi</a><div class="rail-sep"></div>`;
   GUILDS.forEach(g=>{
     const btn=document.createElement('button');
     btn.className='rail-item';
@@ -787,21 +845,21 @@ document.getElementById('msgInput').addEventListener('keydown',async e=>{
   e.target.value='';
 
   if(!MESSAGES[activeChannel.id])MESSAGES[activeChannel.id]=[];
-  MESSAGES[activeChannel.id].push({
-    id:'s'+Date.now(),
-    a:{n:'BiscordBot',c:'#5865F2',bot:true},
-    content:val,ts:Date.now()
-  });
+  MESSAGES[activeChannel.id].push({id:'s'+Date.now(),a:{n:BOT.username,c:'#5865F2',bot:true},content:val,ts:Date.now()});
 
-  if(val.startsWith('!')){
-    await sleep(400);
-    let reply=null;
-    if(val==='!ping') reply={content:'🏓 Pong! Latency: **11ms**'};
-    else if(val==='!help') reply={embed:{color:0x5865F2,title:'📖 Commands',desc:'`!ping` — Latency\n`!stats [user]` — Kill stats\n`!rank` — Leaderboard\n`!help` — This menu'}};
-    else if(val.startsWith('!stats')) reply={embed:{color:0x5865F2,title:'📈 Stats',desc:'**Kills:** 2,100\n**Deaths:** 530\n**K/D:** 3.96\n**Rank:** Soldier'}};
-    else if(val==='!rank') reply={embed:{color:0x5865F2,title:'🏆 Leaderboard',desc:'**1.** xShadow — 3,840\n**2.** NightCore — 3,210\n**3.** Phantom_77 — 2,980'}};
-    else reply={embed:{color:0x5865F2,title:'✅ Done',desc:`Command \`${val}\` executed.`}};
-    if(reply) MESSAGES[activeChannel.id].push({id:'r'+Date.now(),a:{n:'BiscordBot',c:'#5865F2',bot:true},...reply,ts:Date.now()});
+  if(val.startsWith('$ ')){
+    try{
+      const result=await api('/console/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:val.slice(2)})});
+      MESSAGES[activeChannel.id].push({id:'r'+Date.now(),a:{n:BOT.username,c:'#5865F2',bot:true},embed:{color:result.exit_code===0?0x23A559:0xED4245,title:`💻 Console exit ${result.exit_code}`,desc:'```\n'+(result.output||'(no output)')+'\n```'},ts:Date.now()});
+    }catch(err){
+      MESSAGES[activeChannel.id].push({id:'r'+Date.now(),a:{n:'System',c:'#ED4245'},content:'Console error: '+(err.message||'failed'),ts:Date.now()});
+    }
+  }else{
+    try{
+      await api('/messages/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel_id:activeChannel.id,content:val})});
+    }catch(err){
+      MESSAGES[activeChannel.id].push({id:'r'+Date.now(),a:{n:'System',c:'#ED4245'},content:'Send failed: '+(err.message||'unknown error'),ts:Date.now()});
+    }
   }
 
   renderMessages(activeChannel);
