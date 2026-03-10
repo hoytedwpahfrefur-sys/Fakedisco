@@ -268,7 +268,7 @@ html,body{
     <!-- Buttons -->
     <div class="actions">
       <button class="btn btn-continue" id="continueBtn" onclick="handleContinue()">Authorise & Continue</button>
-      <button class="btn btn-cancel" onclick="window.location.href='x_login2.html'">Cancel</button>
+      <button class="btn btn-cancel" onclick="window.location.href='index.html'">Cancel</button>
     </div>
 
   </div>
@@ -280,8 +280,8 @@ function handleContinue(){
   const pending = sessionStorage.getItem('pendingSession')==='true';
 
   if(!pending){
-    alert('No verified local backend session found. Please log in again and start x_backend_local.py.');
-    window.location.href='x_login2.html';
+    alert('No verified local backend session found. Please log in again and start y_backend_local.py.');
+    window.location.href='index.html';
     return;
   }
 
@@ -289,7 +289,8 @@ function handleContinue(){
   btn.disabled = true;
   setTimeout(() => {
     sessionStorage.setItem('permissionAccepted','true');
-    window.location.href = 'x_bot-dashboard2.html';
+    localStorage.setItem('permissionAccepted','true');
+    window.location.href = 'y_bot-dashboard2.html';
   }, 1200);
 }
 </script>
