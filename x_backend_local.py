@@ -6,14 +6,41 @@ Run: python x_backend_local.py
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Optional
+from urllib.parse import unquote
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-HOST = "127.0.0.1"
-PORT = 8787
+HOST = "0.0.0.0"
+PORT = int(os.environ.get("PORT", "8787"))
 API_BASE = "https://discord.com/api/v10"
+BASE_DIR = Path(__file__).resolve().parent
+
+STATIC_ROUTES = {
+    "/": "index.html",
+    "/login": "index.html",
+    "/index.html": "index.html",
+    "/permissions": "x_perm.html",
+    "/dashboard": "x_bot-dashboard2.html",
+    "/x_login2.html": "x_login2.html",
+    "/x_perm.html": "x_perm.html",
+    "/x_bot-dashboard2.html": "x_bot-dashboard2.html",
+}
+
+CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".svg": "image/svg+xml",
+}
 
 STATE = {
     "token": None,
@@ -52,6 +79,32 @@ def avatar_url(profile: dict) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
+    def _resolve_static_file(self, route: str) -> Optional[Path]:
+        mapped = STATIC_ROUTES.get(route)
+        if mapped:
+            file_path = BASE_DIR / mapped
+            return file_path if file_path.is_file() else None
+
+        candidate = (BASE_DIR / route.lstrip("/")).resolve()
+        if BASE_DIR not in candidate.parents or not candidate.is_file():
+            return None
+        return candidate
+
+    def _serve_static(self, route: str) -> bool:
+        safe_route = unquote(route.split("?", 1)[0])
+        file_path = self._resolve_static_file(safe_route)
+        if not file_path:
+            return False
+
+        payload = file_path.read_bytes()
+        content_type = CONTENT_TYPES.get(file_path.suffix.lower(), "application/octet-stream")
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+        return True
+
     def _json(self, code: int, payload: dict):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(code)
@@ -76,6 +129,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):  # noqa: N802
         try:
+            if not self.path.startswith("/api/"):
+                if self._serve_static(self.path):
+                    return
+                self._json(404, {"error": "Not found"})
+                return
+
             if self.path == "/api/session/status":
                 self._json(
                     200,
@@ -198,7 +257,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"Biscord local backend running on http://{HOST}:{PORT}")
+    print(f"Biscord backend running on http://{HOST}:{PORT}")
     server.serve_forever()
 
 
