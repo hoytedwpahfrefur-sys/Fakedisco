@@ -365,7 +365,7 @@ html,body{
             Find your token in the
             <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a>
             under Bot → Token.<br/>
-            Then run <code>python x_backend_local.py</code> on this device before logging in.
+            Then run <code>python y_backend_local.py</code> on this device before logging in.
           </div>
         </div>
 
@@ -490,7 +490,7 @@ function handleLogin(e){
       btn.classList.remove('loading');
       btn.disabled=false;
       showToast('✅','Local backend connected. Review permissions to continue.','success');
-      setTimeout(()=>{ window.location.href='x_perm.html'; }, 850);
+      setTimeout(()=>{ window.location.href='y_perm.html'; }, 850);
     })
     .catch((message)=>{
       btn.classList.remove('loading');
@@ -503,7 +503,7 @@ function handleLogin(e){
 }
 
 function verifyBotToken(token){
-  return fetch('http://127.0.0.1:8787/api/session/start',{
+  return fetch('/api/session/start',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({token})
@@ -515,7 +515,7 @@ function verifyBotToken(token){
     throw new Error(data.error||'Local backend check failed.');
   }).catch((err)=>{
     if(err.message&&err.message.includes('Failed to fetch')){
-      throw new Error('Local backend is offline. Start x_backend_local.py first.');
+      throw new Error('Local backend is offline. Start y_backend_local.py first.');
     }
     throw err;
   });
@@ -546,6 +546,19 @@ function hideToast(){
 }
 
 /* clear error on input */
+(async function redirectIfAlreadyLoggedIn(){
+  try{
+    const res=await fetch('/api/session/status');
+    const data=await res.json().catch(()=>({}));
+    if(res.ok && data.active){
+      localStorage.setItem('permissionAccepted','true');
+      window.location.href='y_bot-dashboard2.html';
+    }
+  }catch(_){
+    // backend offline, stay on login
+  }
+})();
+
 document.getElementById('tokenInput').addEventListener('input',()=>{
   document.getElementById('tokenInput').classList.remove('error');
   document.getElementById('tokenError').classList.remove('show');
