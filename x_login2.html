@@ -503,7 +503,7 @@ function handleLogin(e){
 }
 
 function verifyBotToken(token){
-  return fetch('http://127.0.0.1:8787/api/session/start',{
+  return fetch('/api/session/start',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({token})
