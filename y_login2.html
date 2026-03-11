@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Biscord</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=gg+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- fallback since gg sans isn't on google fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+
+:root{
+  --dc-blurple:#5865F2;
+  --dc-blurple-hover:#4752C4;
+  --dc-blurple-glow:rgba(88,101,242,0.3);
+  --dc-bg:#313338;
+  --dc-bg-2:#2B2D31;
+  --dc-bg-3:#1E1F22;
+  --dc-bg-modal:#313338;
+  --dc-input-bg:#1E1F22;
+  --dc-input-border:#1E1F22;
+  --dc-input-border-focus:#00A8FC;
+  --dc-text:#DBDEE1;
+  --dc-text-muted:#949BA4;
+  --dc-text-link:#00A8FC;
+  --dc-error:#FA777C;
+  --dc-success:#23A559;
+  --dc-red:#ED4245;
+}
+
+html,body{
+  width:100%;min-height:100%;
+  background:var(--dc-bg-2);
+  font-family:'Noto Sans','Helvetica Neue',Helvetica,Arial,sans-serif;
+  color:var(--dc-text);
+  overflow-x:hidden;
+}
+
+/* ── animated gradient bg (exact discord style) ── */
+.bg-wrap{
+  position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(circle at 15% 50%, rgba(88,101,242,0.18) 0%, transparent 50%),
+    radial-gradient(circle at 85% 30%, rgba(87,242,135,0.08) 0%, transparent 45%),
+    radial-gradient(circle at 50% 90%, rgba(254,231,92,0.06) 0%, transparent 40%),
+    var(--dc-bg-2);
+}
+
+/* blobs */
+.blob{
+  position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;
+  animation:blobdrift 18s ease-in-out infinite;
+}
+.blob-1{width:520px;height:520px;background:rgba(88,101,242,.14);top:-120px;left:-80px;animation-delay:0s;}
+.blob-2{width:380px;height:380px;background:rgba(87,242,135,.07);top:40%;right:-100px;animation-delay:-6s;}
+.blob-3{width:300px;height:300px;background:rgba(254,231,92,.05);bottom:-60px;left:30%;animation-delay:-12s;}
+@keyframes blobdrift{
+  0%,100%{transform:translate(0,0) scale(1);}
+  33%{transform:translate(30px,-20px) scale(1.05);}
+  66%{transform:translate(-20px,30px) scale(.97);}
+}
+
+/* ── page center ── */
+.page-center{
+  position:relative;z-index:1;
+  min-height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+
+/* ── modal ── */
+.modal{
+  background:var(--dc-bg-modal);
+  border-radius:4px;
+  box-shadow:0 2px 10px 0 rgba(0,0,0,.2), 0 8px 40px rgba(0,0,0,.35);
+  padding:32px;
+  width:100%;max-width:784px;
+  display:flex;gap:32px;align-items:center;
+}
+@media(max-width:700px){
+  .modal{flex-direction:column;max-width:480px;padding:24px;gap:0;}
+}
+
+/* left panel */
+.modal-left{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0;}
+@media(max-width:700px){.modal-left{width:100%;}}
+
+.modal-title{
+  font-size:24px;font-weight:700;
+  color:#F2F3F5;
+  margin-bottom:8px;letter-spacing:-.01em;
+}
+.modal-sub{
+  font-size:16px;color:var(--dc-text-muted);
+  font-weight:400;margin-bottom:20px;
+}
+
+/* form */
+.form{width:100%;display:flex;flex-direction:column;gap:0;}
+
+.field-wrap{
+  display:flex;flex-direction:column;
+  margin-bottom:16px;
+}
+.field-label{
+  font-size:12px;font-weight:700;letter-spacing:.02em;
+  text-transform:uppercase;
+  color:var(--dc-text-muted);
+  margin-bottom:8px;display:flex;align-items:center;gap:4px;
+}
+.field-label .req{color:var(--dc-error);margin-left:2px;}
+
+.field-input{
+  background:var(--dc-input-bg);
+  border:1px solid var(--dc-input-bg);
+  border-radius:3px;
+  color:var(--dc-text);
+  font-family:inherit;font-size:16px;font-weight:400;
+  padding:10px;
+  outline:none;
+  transition:border-color .15s;
+  width:100%;
+}
+.field-input::placeholder{color:var(--dc-text-muted);opacity:.7;}
+.field-input:focus{border-color:var(--dc-input-border-focus);}
+.field-input.error{border-color:var(--dc-error);}
+
+/* password toggle */
+.input-wrap{position:relative;}
+.input-wrap .field-input{padding-right:44px;}
+.toggle-vis{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;
+  color:var(--dc-text-muted);font-size:20px;padding:4px;
+  transition:color .15s;display:flex;align-items:center;
+}
+.toggle-vis:hover{color:var(--dc-text);}
+
+.field-error{
+  font-size:12px;color:var(--dc-error);
+  margin-top:4px;font-style:italic;display:none;
+}
+.field-error.show{display:block;}
+
+/* helper text under token field */
+.token-help{
+  font-size:12px;color:var(--dc-text-muted);
+  margin-top:6px;line-height:1.5;
+}
+.token-help a{color:var(--dc-text-link);text-decoration:none;}
+.token-help a:hover{text-decoration:underline;}
+
+/* login btn */
+.btn-login{
+  width:100%;
+  background:var(--dc-blurple);
+  color:#fff;
+  border:none;border-radius:3px;
+  font-family:inherit;font-size:16px;font-weight:500;
+  padding:11px;
+  cursor:pointer;
+  transition:background .17s,box-shadow .17s,transform .1s;
+  margin-top:20px;
+  position:relative;overflow:hidden;
+  letter-spacing:.01em;
+}
+.btn-login:hover{background:var(--dc-blurple-hover);}
+.btn-login:active{transform:scale(.98);}
+.btn-login:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+.btn-login.loading{color:transparent;}
+.btn-login.loading::after{
+  content:'';position:absolute;inset:0;margin:auto;
+  width:20px;height:20px;border-radius:50%;
+  border:2.5px solid rgba(255,255,255,.3);
+  border-top-color:#fff;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* register link */
+.register-row{
+  margin-top:8px;font-size:14px;color:var(--dc-text-muted);
+  text-align:left;
+}
+.register-row a{color:var(--dc-text-link);text-decoration:none;}
+.register-row a:hover{text-decoration:underline;}
+
+/* divider */
+.modal-divider{
+  width:1px;background:rgba(255,255,255,.06);
+  align-self:stretch;
+  margin:0 8px;
+}
+@media(max-width:700px){.modal-divider{display:none;}}
+
+/* right panel - QR / bot art */
+.modal-right{
+  display:flex;flex-direction:column;align-items:center;gap:16px;
+  min-width:200px;
+}
+@media(max-width:700px){.modal-right{display:none;}}
+
+.qr-title{font-size:24px;font-weight:700;color:#F2F3F5;text-align:center;line-height:1.2;}
+.qr-sub{font-size:14px;color:var(--dc-text-muted);text-align:center;line-height:1.5;}
+
+/* Bot icon display */
+.bot-display{
+  width:160px;height:160px;
+  background:var(--dc-bg-3);
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+  border:3px solid rgba(88,101,242,.3);
+  box-shadow:0 0 40px rgba(88,101,242,.2);
+}
+.bot-display svg{width:100px;height:100px;}
+.bot-online{
+  position:absolute;bottom:10px;right:10px;
+  width:22px;height:22px;border-radius:50%;
+  background:var(--dc-success);
+  border:3px solid var(--dc-bg-modal);
+}
+.bot-tag{
+  font-size:12px;font-weight:700;letter-spacing:.04em;
+  color:var(--dc-text-muted);text-transform:uppercase;
+  background:var(--dc-bg-3);
+  padding:5px 14px;border-radius:12px;
+}
+
+/* ── top discord nav ── */
+.dc-nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 40px;height:72px;
+  background:transparent;
+}
+@media(max-width:600px){.dc-nav{padding:0 20px;height:60px;}}
+
+.dc-logo{display:flex;align-items:center;gap:12px;text-decoration:none;}
+.dc-logo svg{width:124px;height:34px;fill:white;}
+
+.nav-links{display:flex;align-items:center;gap:8px;}
+@media(max-width:768px){.nav-links{display:none;}}
+
+.nav-link{
+  color:#fff;font-size:15px;font-weight:500;
+  text-decoration:none;padding:8px 14px;border-radius:4px;
+  transition:background .15s;
+}
+.nav-link:hover{background:rgba(255,255,255,.1);}
+
+.btn-open-discord{
+  background:#fff;color:#23272A;
+  font-size:14px;font-weight:600;
+  padding:10px 20px;border-radius:28px;border:none;cursor:pointer;
+  transition:background .15s,color .15s,box-shadow .15s;
+  text-decoration:none;white-space:nowrap;
+}
+.btn-open-discord:hover{background:#EEF0F2;box-shadow:0 4px 15px rgba(0,0,0,.2);}
+
+/* mobile hamburger */
+.nav-mobile-btn{
+  display:none;background:none;border:none;color:#fff;
+  font-size:22px;cursor:pointer;padding:8px;
+}
+@media(max-width:768px){.nav-mobile-btn{display:flex;align-items:center;}}
+
+/* ── error toast ── */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:#111214;border-radius:8px;
+  padding:14px 20px;
+  display:flex;align-items:center;gap:12px;
+  box-shadow:0 4px 24px rgba(0,0,0,.4);
+  font-size:14px;font-weight:500;
+  z-index:9000;min-width:260px;
+  transition:transform .35s cubic-bezier(.34,1.56,.64,1),opacity .35s;
+  opacity:0;
+}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast-icon{font-size:18px;flex-shrink:0;}
+.toast-msg{flex:1;color:var(--dc-text);}
+.toast-close{background:none;border:none;color:var(--dc-text-muted);cursor:pointer;font-size:16px;padding:2px;transition:color .15s;}
+.toast-close:hover{color:var(--dc-text);}
+.toast.error .toast-icon{color:var(--dc-error);}
+.toast.success .toast-icon{color:var(--dc-success);}
+
+/* ── extra padding for nav ── */
+.page-center{padding-top:100px;padding-bottom:40px;}
+</style>
+</head>
+<body>
+
+<!-- bg -->
+<div class="bg-wrap">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+
+<!-- toast -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toastIcon">⚠️</span>
+  <span class="toast-msg" id="toastMsg">Error message</span>
+  <button class="toast-close" onclick="hideToast()">✕</button>
+</div>
+
+<!-- top nav -->
+<nav class="dc-nav">
+  <a class="dc-logo" href="#">
+    <!-- Discord wordmark SVG -->
+    <svg viewBox="0 0 146 34" xmlns="http://www.w3.org/2000/svg">
+      <path d="M26.6 0C24.7 0 23.2 1.6 23.2 3.5v20.3c0 1 .8 1.9 1.9 1.9h21.4v5.6l5.3-5.6h4.5c1.9 0 3.5-1.6 3.5-3.5V3.5C59.8 1.6 58.3 0 56.3 0H26.6zm4.6 8.3h16.5v2.3H31.2V8.3zm0 5.3h16.5v2.3H31.2v-2.3zm0 5.3h11v2.3h-11v-2.3zm-10.6-9C17.2 5 13.7 5.3 10.2 6.9 7.3 8.2 5.1 10.4 3.4 13c-1.7 2.6-2.7 5.5-3.1 8.6-.4 3 0 6.1 1.2 8.9 1.2 2.7 3.1 5.1 5.6 6.7 2.4 1.6 5.3 2.5 8.2 2.3 1.4-.1 2.8-.4 4.1-.9l-1-2.5c-1 .4-2 .7-3.1.7-2 .1-4-.6-5.6-1.8-1.6-1.2-2.9-2.9-3.6-4.9-.8-2-.9-4.1-.5-6.1.4-2 1.4-3.9 2.8-5.4 1.4-1.5 3.2-2.6 5.2-3.1 2-.5 4.1-.4 6 .3l.9-2.5z"/>
+      <!-- simplified — just show "Discord" text as inline SVG text -->
+      <text x="68" y="25" font-family="'Noto Sans',sans-serif" font-weight="700" font-size="22" fill="white">Biscord</text>
+    </svg>
+  </a>
+
+
+
+</nav>
+
+<!-- page content -->
+<div class="page-center">
+  <div class="modal">
+
+    <!-- LEFT: login form -->
+    <div class="modal-left">
+      <div class="modal-title">Welcome back!</div>
+      <div class="modal-sub">We're so excited to see you again!</div>
+
+      <form class="form" id="loginForm" onsubmit="handleLogin(event)">
+
+        <div class="field-wrap">
+          <label class="field-label" for="tokenInput">
+            Bot Token <span class="req">*</span>
+          </label>
+          <div class="input-wrap">
+            <input
+              class="field-input"
+              id="tokenInput"
+              type="password"
+              placeholder="Enter your bot token"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" class="toggle-vis" id="toggleVis" onclick="toggleToken()" title="Show token">
+              <!-- eye icon -->
+              <svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg id="eyeOffIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </div>
+          <div class="field-error" id="tokenError">Invalid token. Please check and try again.</div>
+          <div class="token-help">
+            Find your token in the
+            <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a>
+            under Bot → Token.<br/>
+            Then run <code>node y_backend_local.js</code> on this device before logging in.
+          </div>
+        </div>
+
+        <button class="btn-login" id="loginBtn" type="submit">Log In</button>
+
+        <div class="register-row">
+          <span>Need help? </span>
+          <a href="https://discord.com/developers/docs" target="_blank">Read the docs</a>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- divider -->
+    <div class="modal-divider"></div>
+
+    <!-- RIGHT: bot display -->
+    <div class="modal-right">
+      <div class="qr-title">Log in with<br/>your bot token</div>
+
+      <div class="bot-display">
+        <!-- Discord bot / robot icon -->
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <!-- body -->
+          <rect x="22" y="45" width="56" height="40" rx="12" fill="#5865F2"/>
+          <!-- head -->
+          <rect x="28" y="16" width="44" height="36" rx="10" fill="#5865F2"/>
+          <!-- eyes -->
+          <circle cx="39" cy="32" r="6" fill="white"/>
+          <circle cx="61" cy="32" r="6" fill="white"/>
+          <circle cx="40" cy="33" r="3" fill="#23272A"/>
+          <circle cx="62" cy="33" r="3" fill="#23272A"/>
+          <!-- eye shine -->
+          <circle cx="41" cy="31" r="1.2" fill="white"/>
+          <circle cx="63" cy="31" r="1.2" fill="white"/>
+          <!-- mouth -->
+          <rect x="38" y="42" width="24" height="4" rx="2" fill="rgba(255,255,255,0.3)"/>
+          <!-- antenna -->
+          <line x1="50" y1="16" x2="50" y2="8" stroke="white" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="50" cy="6" r="4" fill="white"/>
+          <!-- arms -->
+          <rect x="6" y="48" width="16" height="10" rx="5" fill="#4752C4"/>
+          <rect x="78" y="48" width="16" height="10" rx="5" fill="#4752C4"/>
+          <!-- belly panel -->
+          <rect x="34" y="56" width="32" height="18" rx="6" fill="rgba(255,255,255,0.12)"/>
+          <circle cx="42" cy="62" r="3" fill="#57F287"/>
+          <circle cx="50" cy="62" r="3" fill="#FEE75C"/>
+          <circle cx="58" cy="62" r="3" fill="#ED4245"/>
+        </svg>
+        <div class="bot-online"></div>
+      </div>
+
+      <div class="bot-tag">BOT CONTROL PANEL</div>
+      <div class="qr-sub">Enter your bot token to<br/>control your bot like<br/>a normal Discord user.</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ── toggle token visibility ── */
+function toggleToken(){
+  const inp=document.getElementById('tokenInput');
+  const eye=document.getElementById('eyeIcon');
+  const eyeOff=document.getElementById('eyeOffIcon');
+  if(inp.type==='password'){
+    inp.type='text';eye.style.display='none';eyeOff.style.display='block';
+  } else {
+    inp.type='password';eye.style.display='block';eyeOff.style.display='none';
+  }
+}
+
+/* ── basic token validation ── */
+function isValidTokenFormat(token){
+  token=token.trim();
+  // Discord bot tokens are 3 base64 parts separated by dots
+  // Format: [user_id_b64].[timestamp_b64].[hmac_b64]
+  // The first part decodes to a numeric user ID
+  if(!token) return false;
+  const parts=token.split('.');
+  return parts.length===3 && parts[0].length>=20 && parts[1].length>=6;
+}
+
+/* ── handle login ── */
+function handleLogin(e){
+  e.preventDefault();
+  const inp=document.getElementById('tokenInput');
+  const btn=document.getElementById('loginBtn');
+  const err=document.getElementById('tokenError');
+  const token=inp.value.trim();
+
+  // clear error
+  inp.classList.remove('error');
+  err.classList.remove('show');
+
+  if(!token){
+    inp.classList.add('error');
+    err.textContent='Please enter your bot token.';
+    err.classList.add('show');
+    shakeField(inp);
+    return;
+  }
+
+  if(!isValidTokenFormat(token)){
+    inp.classList.add('error');
+    err.textContent='Invalid token format. Bot tokens look like: MTEx...xxx.xxx.xxx';
+    err.classList.add('show');
+    shakeField(inp);
+    showToast('⚠️','Invalid token format. Check your Developer Portal.','error');
+    return;
+  }
+
+  // Loading state
+  btn.classList.add('loading');
+  btn.disabled=true;
+
+  verifyBotToken(token)
+    .then((session)=>{
+      sessionStorage.setItem('pendingSession', 'true');
+      sessionStorage.setItem('botProfile', JSON.stringify(session.profile||{}));
+      sessionStorage.setItem('botGuildCount', String(session.guild_count||0));
+      btn.classList.remove('loading');
+      btn.disabled=false;
+      showToast('✅','Local backend connected. Review permissions to continue.','success');
+      setTimeout(()=>{ window.location.href='y_perm.html'; }, 850);
+    })
+    .catch((message)=>{
+      btn.classList.remove('loading');
+      btn.disabled=false;
+      inp.classList.add('error');
+      err.textContent=message || 'Unable to verify token.';
+      err.classList.add('show');
+      showToast('⚠️',message || 'Token check failed.','error');
+    });
+}
+
+function verifyBotToken(token){
+  return fetch('/api/session/start',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({token})
+  }).then(async(res)=>{
+    const data=await res.json().catch(()=>({}));
+    if(res.ok&&data.ok) return data;
+    if(res.status===401) throw new Error('Invalid bot token.');
+    if(res.status===502) throw new Error('Backend cannot reach Discord right now.');
+    throw new Error(data.error||'Local backend check failed.');
+  }).catch((err)=>{
+    if(err.message&&err.message.includes('Failed to fetch')){
+      throw new Error('Local backend is offline. Start y_backend_local.js first.');
+    }
+    throw err;
+  });
+}
+
+/* ── shake animation ── */
+function shakeField(el){
+  el.style.animation='none';
+  void el.offsetWidth;
+  el.style.animation='shake .4s ease';
+  el.addEventListener('animationend',()=>el.style.animation='',{once:true});
+}
+
+/* ── toast ── */
+let toastTimer=null;
+function showToast(icon,msg,type='info'){
+  const t=document.getElementById('toast');
+  document.getElementById('toastIcon').textContent=icon;
+  document.getElementById('toastMsg').textContent=msg;
+  t.className='toast '+type;
+  void t.offsetWidth;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(hideToast,4000);
+}
+function hideToast(){
+  document.getElementById('toast').classList.remove('show');
+}
+
+/* clear error on input */
+(async function redirectIfAlreadyLoggedIn(){
+  try{
+    const res=await fetch('/api/session/status');
+    const data=await res.json().catch(()=>({}));
+    if(res.ok && data.active){
+      localStorage.setItem('permissionAccepted','true');
+      window.location.href='y_bot-dashboard2.html';
+    }
+  }catch(_){
+    // backend offline, stay on login
+  }
+})();
+
+document.getElementById('tokenInput').addEventListener('input',()=>{
+  document.getElementById('tokenInput').classList.remove('error');
+  document.getElementById('tokenError').classList.remove('show');
+});
+
+/* shake keyframe injected */
+const style=document.createElement('style');
+style.textContent='@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-5px);}80%{transform:translateX(5px);}}';
+document.head.appendChild(style);
+</script>
+</body>
+</html>
