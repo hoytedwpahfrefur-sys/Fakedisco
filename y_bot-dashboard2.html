@@ -27,7 +27,7 @@
   --rail-w:72px;
   --side-w:240px;
 }
-html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-1);font-family:'Noto Sans',sans-serif;color:var(--text);font-size:14px;line-height:1;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-1);font-family:'Noto Sans',sans-serif;color:var(--text);font-size:14px;line-height:1.2;}
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.07);border-radius:2px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -272,12 +272,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-1);font-fam
 .embed-desc code{background:rgba(0,0,0,.3);padding:1px 4px;border-radius:3px;font-size:85%;font-family:monospace;}
 
 /* Input */
-.input-area{padding:0 16px 24px;flex-shrink:0;}
+.input-area{padding:0 16px 24px;flex-shrink:0;background:var(--bg-3);}
 .input-box{
-  background:var(--bg-4);
+  background:#383A40;
   border-radius:8px;
   display:flex;align-items:center;
   padding:0 12px;
+  border:1px solid rgba(255,255,255,0.06);
 }
 .input-icon{
   width:36px;height:44px;background:none;border:none;
@@ -350,6 +351,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-1);font-fam
 
 /* Mobile sidebar slide */
 @media(max-width:768px){
+  :root{--rail-w:62px;--side-w:82vw;}
+  .app{position:relative;}
+  .rail{display:flex;width:var(--rail-w);padding-top:10px;}
   .sidebar{
     position:fixed;left:0;top:0;bottom:0;z-index:100;
     transform:translateX(calc(-100% - var(--rail-w)));
@@ -358,9 +362,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-1);font-fam
     margin-left:var(--rail-w);
   }
   .sidebar.open{transform:translateX(0);}
-  :root{--rail-w:0px;}
-  .rail{display:none;}
-  .main{width:100vw;}
+  .main{width:calc(100vw - var(--rail-w));}
+  .topbar{padding:0 12px;}
+  .messages{padding-bottom:4px;}
+  .input-area{padding:8px 8px calc(env(safe-area-inset-bottom,0px) + 8px);}
+  .input-icon{width:30px;height:40px;}
+  .the-input{font-size:16px;padding:10px 6px;}
+}
+@media(max-width:430px){
+  .ch-intro{padding:20px 12px 12px;}
+  .msg{gap:10px;padding:2px 10px;}
+  .msg-follow{gap:10px;padding:1px 10px;}
+  .msg-av,.msg-follow-ts{width:32px;height:32px;}
 }
 </style>
 </head>
@@ -392,7 +405,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-1);font-fam
         <div class="bot-disc">BOT</div>
       </div>
       <!-- Settings icon -->
-      <button class="icon-btn" onclick="window.location.href='index.html'" title="Log out">
+      <button class="icon-btn" onclick="logout()" title="Log out">
         <svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.33.07-.67.07-1.08s-.03-.76-.07-1.08l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.67-.07 1.08s.03.76.07 1.08L2.2 13.08c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65z"/></svg>
       </button>
     </div>
@@ -624,6 +637,8 @@ async function hydrateFromDiscord(){
 
 /* ── state ── */
 let activeGuild=null, activeChannel=null;
+let liveMode=false;
+let pollTimer=null;
 
 /* ── boot ── */
 (async()=>{
@@ -735,7 +750,37 @@ async function selectChannel(ch){
 
   document.getElementById('messages').innerHTML=`<div class="center-view"><div class="spin"></div></div>`;
   await sleep(220);
+
+  liveMode=false;
+  try{
+    const data=await api(`/channels/${ch.id}/messages?limit=40`);
+    MESSAGES[ch.id]=mapLiveMessages(data.messages);
+    liveMode=true;
+    startLivePolling(ch.id);
+  }catch(_){
+    // stay on mock fallback
+  }
+
   renderMessages(ch);
+}
+
+
+function mapLiveMessages(list){
+  return (Array.isArray(list)?list:[]).map((m)=>(
+    {id:m.id||('m'+Date.now()),a:m.a||{n:'Unknown',c:'#57F287',bot:false,avatar_url:''},content:m.content||'',ts:m.ts||Date.now(),embed:m.embed}
+  ));
+}
+
+function startLivePolling(channelId){
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer=setInterval(async()=>{
+    if(!activeChannel||activeChannel.id!==channelId||activeChannel.type!==0||!liveMode) return;
+    try{
+      const data=await api(`/channels/${channelId}/messages?limit=40`);
+      MESSAGES[channelId]=mapLiveMessages(data.messages);
+      renderMessages(activeChannel);
+    }catch(_){ }
+  },4000);
 }
 
 /* ── messages ── */
@@ -780,7 +825,7 @@ function renderMessages(ch){
       row.className='msg';
       const botBadge=msg.a.bot?`<span class="bot-tag">BOT</span>`:'';
       row.innerHTML=`
-        <div class="msg-av" style="background:${msg.a.c}22;color:${msg.a.c};">${msg.a.bot?'🤖':ini(msg.a.n)}</div>
+        <div class="msg-av" style="background:${msg.a.c}22;color:${msg.a.c};">${msg.a.avatar_url?`<img src="${msg.a.avatar_url}" alt="${esc(msg.a.n)}"/>`:(msg.a.bot?'🤖':ini(msg.a.n))}</div>
         <div class="msg-right">
           <div class="msg-head">
             <span class="msg-author" style="color:${msg.a.c};">${esc(msg.a.n)}${botBadge}</span>
@@ -884,6 +929,13 @@ document.getElementById('msgInput').addEventListener('keydown',async e=>{
 /* ── mobile sidebar ── */
 function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
+
+async function logout(){
+  try{ await api('/session/logout',{method:'POST'}); }catch(_){ }
+  sessionStorage.removeItem('permissionAccepted');
+  localStorage.removeItem('permissionAccepted');
+  window.location.href='index.html';
+}
 </script>
 </body>
 </html>
