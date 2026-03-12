@@ -448,11 +448,11 @@ const API='/api';
 const BOT = { username:'BiscordBot', id:'111', bot:true, avatar_url:'' };
 
 const GUILDS = [
-  { id:'g1', name:'Wraith Clan',    abbr:'WC', color:'#5865F2' },
-  { id:'g2', name:'Gaming Hub',     abbr:'GH', color:'#23A559' },
-  { id:'g3', name:'Dev Zone',       abbr:'DZ', color:'#FEE75C' },
-  { id:'g4', name:'Chill Lounge',   abbr:'CL', color:'#ED4245' },
-  { id:'g5', name:'Anime Central',  abbr:'AC', color:'#FF73FA' },
+  { id:'g1', name:'Wraith Clan',    abbr:'WC', color:'#5865F2', icon_url:'' },
+  { id:'g2', name:'Gaming Hub',     abbr:'GH', color:'#23A559', icon_url:'' },
+  { id:'g3', name:'Dev Zone',       abbr:'DZ', color:'#FEE75C', icon_url:'' },
+  { id:'g4', name:'Chill Lounge',   abbr:'CL', color:'#ED4245', icon_url:'' },
+  { id:'g5', name:'Anime Central',  abbr:'AC', color:'#FF73FA', icon_url:'' },
 ];
 
 const CHANNELS = {
@@ -597,7 +597,7 @@ async function hydrateFromDiscord(){
       GUILDS.length=0;
       guilds.slice(0,20).forEach((g,idx)=>{
         const name=g.name||`Server ${idx+1}`;
-        GUILDS.push({id:g.id,name,abbr:name.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase()||'SV',color:['#5865F2','#23A559','#FEE75C','#ED4245','#FF73FA'][idx%5]});
+        GUILDS.push({id:g.id,name,abbr:name.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase()||'SV',color:['#5865F2','#23A559','#FEE75C','#ED4245','#FF73FA'][idx%5],icon_url:g.icon_url||''});
       });
       for(const g of GUILDS){
         try{
@@ -627,6 +627,17 @@ let activeGuild=null, activeChannel=null;
 
 /* ── boot ── */
 (async()=>{
+  try{
+    const status=await api('/session/status');
+    if(!status.active){
+      window.location.href='index.html';
+      return;
+    }
+  }catch(_){
+    window.location.href='index.html';
+    return;
+  }
+
   await sleep(220);
   await hydrateFromDiscord();
   renderRail();
@@ -642,10 +653,14 @@ function renderRail(){
     const btn=document.createElement('button');
     btn.className='rail-item';
     btn.dataset.id=g.id;
-    btn.textContent=g.abbr;
     btn.style.background=g.color+'22';
     btn.style.color=g.color;
     btn.title=g.name;
+    if(g.icon_url){
+      btn.innerHTML=`<img src="${g.icon_url}" alt="${esc(g.name)} icon" style="width:100%;height:100%;object-fit:cover;border-radius:16px;"/>`;
+    }else{
+      btn.textContent=g.abbr;
+    }
     btn.addEventListener('click',()=>{selectGuild(g);closeSidebar();});
     rail.appendChild(btn);
   });
