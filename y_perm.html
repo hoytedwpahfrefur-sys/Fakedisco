@@ -275,12 +275,19 @@ html,body{
 </div>
 
 <script>
-function handleContinue(){
+async function handleContinue(){
   const btn = document.getElementById('continueBtn');
-  const pending = sessionStorage.getItem('pendingSession')==='true';
 
-  if(!pending){
-    alert('No verified local backend session found. Please log in again and start y_backend_local.js.');
+  try{
+    const res = await fetch('/api/session/status');
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || !data.active){
+      alert('No verified backend session found. Please log in again from index.html.');
+      window.location.href='index.html';
+      return;
+    }
+  }catch(_){
+    alert('Backend seems offline. Please start y_backend_local.js and log in again.');
     window.location.href='index.html';
     return;
   }
@@ -291,7 +298,7 @@ function handleContinue(){
     sessionStorage.setItem('permissionAccepted','true');
     localStorage.setItem('permissionAccepted','true');
     window.location.href = 'y_bot-dashboard2.html';
-  }, 1200);
+  }, 600);
 }
 </script>
 </body>
